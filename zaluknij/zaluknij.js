@@ -1,191 +1,144 @@
-// zaluknij.js - Addon dla Zaluknij.cc
+// zaluknij.js - Addon dla Zaluknij.cc (BEZ HTTP REQUESTS)
 
-const BASE_URL = 'https://zaluknij.cc';
-
-// Główna funkcja do pobierania linków do filmów
-async function getMediaLinks(params) {
-  const { tmdbId, title, originalTitle, releaseYear, isSerial } = params;
-  
-  try {
-    // Wyszukaj media
-    const searchUrl = `${BASE_URL}/wyszukiwarka?phrase=${encodeURIComponent(title)}`;
-    const searchHtml = await httpGet(searchUrl);
-    
-    if (!searchHtml) return [];
-    
-    // Parse HTML i znajdź właściwy film/serial
-    const mediaUrl = findMediaUrl(searchHtml, title, isSerial);
-    if (!mediaUrl) return [];
-    
-    // Pobierz stronę z linkami
-    const mediaHtml = await httpGet(mediaUrl);
-    if (!mediaHtml) return [];
-    
-    // Wyciągnij linki
-    return extractLinks(mediaHtml);
-  } catch (error) {
-    console.log('Error in getMediaLinks: ' + error);
-    return [];
-  }
+// Te funkcje NIE są używane - Dart wykonuje HTTP
+// Są tu tylko jako placeholder
+function getMediaLinks(params) {
+  // Ta funkcja nie jest używana - Dart wywołuje bezpośrednio findMediaUrl i extractLinks
+  return [];
 }
 
-// Funkcja do pobierania linków do odcinków
-async function getEpisodeMediaLinks(params) {
-  const { tmdbId, title, originalTitle, releaseYear, seasonNumber, episodeNumber } = params;
-  
-  try {
-    // Wyszukaj serial
-    const searchUrl = `${BASE_URL}/wyszukiwarka?phrase=${encodeURIComponent(title)}`;
-    const searchHtml = await httpGet(searchUrl);
-    
-    if (!searchHtml) return [];
-    
-    // Znajdź serial
-    const seriesUrl = findMediaUrl(searchHtml, title, true);
-    if (!seriesUrl) return [];
-    
-    // Pobierz stronę serialu
-    const seriesHtml = await httpGet(seriesUrl);
-    if (!seriesHtml) return [];
-    
-    // Znajdź URL odcinka
-    const episodeUrl = findEpisodeUrl(seriesHtml, seasonNumber, episodeNumber);
-    if (!episodeUrl) return [];
-    
-    // Pobierz stronę odcinka
-    const episodeHtml = await httpGet(episodeUrl);
-    if (!episodeHtml) return [];
-    
-    // Wyciągnij linki
-    return extractLinks(episodeHtml);
-  } catch (error) {
-    console.log('Error in getEpisodeMediaLinks: ' + error);
-    return [];
-  }
+function getEpisodeMediaLinks(params) {
+  // Ta funkcja nie jest używana - Dart wywołuje bezpośrednio findEpisodeUrl i extractLinks
+  return [];
 }
 
 // Helper: Znajdź URL do filmu/serialu
 function findMediaUrl(html, title, isSerial) {
-  const sectionIndex = isSerial ? 3 : 1;
-  const pattern = new RegExp(`<div class="row">(?:(?!</div>).)*?</div>`, 'gs');
-  const sections = html.match(pattern) || [];
-  
-  if (sections.length <= sectionIndex) return null;
-  
-  const section = sections[sectionIndex];
-  const itemPattern = /<a href="([^"]+)"[^>]*class="item"[^>]*>[\s\S]*?<div class="title">([^<]+)<\/div>/g;
-  
-  let match;
-  while ((match = itemPattern.exec(section)) !== null) {
-    const url = match[1];
-    const itemTitle = match[2].trim().toLowerCase();
-    const searchTitle = title.toLowerCase();
+  try {
+    var sectionIndex = isSerial ? 3 : 1;
+    var pattern = /<div class="row">[\s\S]*?<\/div>/g;
+    var sections = html.match(pattern) || [];
     
-    if (itemTitle.includes(searchTitle) || searchTitle.includes(itemTitle)) {
-      return url;
+    if (sections.length <= sectionIndex) return null;
+    
+    var section = sections[sectionIndex];
+    var itemPattern = /<a href="([^"]+)"[^>]*class="item"[^>]*>[\s\S]*?<div class="title">([^<]+)<\/div>/g;
+    
+    var match;
+    var searchTitle = title.toLowerCase();
+    
+    while ((match = itemPattern.exec(section)) !== null) {
+      var url = match[1];
+      var itemTitle = match[2].trim().toLowerCase();
+      
+      if (itemTitle.indexOf(searchTitle) !== -1 || searchTitle.indexOf(itemTitle) !== -1) {
+        return url;
+      }
     }
+    
+    return null;
+  } catch (e) {
+    console.log('Error in findMediaUrl: ' + e);
+    return null;
   }
-  
-  return null;
 }
 
 // Helper: Znajdź URL do odcinka
 function findEpisodeUrl(html, seasonNumber, episodeNumber) {
-  const seasonPattern = new RegExp(`<li[^>]*>\\s*<span[^>]*>Sezon\\s+(\\d+)</span>\\s*<ul[^>]*>([\\s\\S]*?)</ul>\\s*</li>`, 'g');
-  
-  let seasonMatch;
-  while ((seasonMatch = seasonPattern.exec(html)) !== null) {
-    const foundSeason = parseInt(seasonMatch[1]);
+  try {
+    var seasonPattern = /<li[^>]*>\s*<span[^>]*>Sezon\s+(\d+)<\/span>\s*<ul[^>]*>([\s\S]*?)<\/ul>\s*<\/li>/g;
     
-    if (foundSeason === seasonNumber) {
-      const episodeList = seasonMatch[2];
-      const episodePattern = /<a href="([^"]+)"[^>]*>.*?(\d+)e(\d+)/g;
+    var seasonMatch;
+    while ((seasonMatch = seasonPattern.exec(html)) !== null) {
+      var foundSeason = parseInt(seasonMatch[1]);
       
-      let episodeMatch;
-      while ((episodeMatch = episodePattern.exec(episodeList)) !== null) {
-        const foundEpisode = parseInt(episodeMatch[3]);
+      if (foundSeason === seasonNumber) {
+        var episodeList = seasonMatch[2];
+        var episodePattern = /<a href="([^"]+)"[^>]*>.*?(\d+)e(\d+)/g;
         
-        if (foundEpisode === episodeNumber) {
-          return episodeMatch[1];
+        var episodeMatch;
+        while ((episodeMatch = episodePattern.exec(episodeList)) !== null) {
+          var foundEpisode = parseInt(episodeMatch[3]);
+          
+          if (foundEpisode === episodeNumber) {
+            return episodeMatch[1];
+          }
         }
       }
     }
+    
+    return null;
+  } catch (e) {
+    console.log('Error in findEpisodeUrl: ' + e);
+    return null;
   }
-  
-  return null;
 }
 
 // Helper: Wyciągnij linki z HTML
 function extractLinks(html) {
-  const links = [];
-  const linkPattern = /<tr[^>]*>[\s\S]*?data-iframe="([^"]+)"[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>/g;
-  
-  let match;
-  while ((match = linkPattern.exec(html)) !== null) {
-    try {
-      const iframeData = match[1];
-      const decoded = atob(iframeData);
-      const jsonData = JSON.parse(decoded);
-      const url = jsonData.src || jsonData.url;
-      
-      if (!url) continue;
-      
-      const lang = match[3].trim().toLowerCase();
-      const quality = match[4].trim().toLowerCase();
-      
-      const languageMap = {
-        'lektor': 'Voice_Over',
-        'napisy pl': 'Subtitles',
-        'dubbing': 'Dubbing',
-        'lektor ivo': 'Voice_Over_IVO'
-      };
-      
-      const qualityMap = {
-        'wysoka': '1080p',
-        'średnia': '720p',
-        'niska': '360p'
-      };
-      
-      links.push({
-        url: url,
-        language: languageMap[lang] || 'PL',
-        quality: qualityMap[quality] || '720p'
-      });
-    } catch (e) {
-      // Skip invalid entries
+  try {
+    var links = [];
+    var linkPattern = /<tr[^>]*>[\s\S]*?data-iframe="([^"]+)"[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>[\s\S]*?<td[^>]*>([^<]+)<\/td>/g;
+    
+    var match;
+    while ((match = linkPattern.exec(html)) !== null) {
+      try {
+        var iframeData = match[1];
+        var decoded = atob(iframeData);
+        var jsonData = JSON.parse(decoded);
+        var url = jsonData.src || jsonData.url;
+        
+        if (!url) continue;
+        
+        var lang = match[3].trim().toLowerCase();
+        var quality = match[4].trim().toLowerCase();
+        
+        var languageMap = {
+          'lektor': 'Voice_Over',
+          'napisy pl': 'Subtitles',
+          'dubbing': 'Dubbing',
+          'lektor ivo': 'Voice_Over_IVO'
+        };
+        
+        var qualityMap = {
+          'wysoka': '1080p',
+          'średnia': '720p',
+          'niska': '360p'
+        };
+        
+        links.push({
+          url: url,
+          language: languageMap[lang] || 'PL',
+          quality: qualityMap[quality] || '720p'
+        });
+      } catch (e) {
+        // Skip invalid entries
+      }
     }
+    
+    return links;
+  } catch (e) {
+    console.log('Error in extractLinks: ' + e);
+    return [];
   }
-  
-  return links;
 }
 
-// Helper functions (implemented by Dart)
-function httpGet(url, headers) {
-  // This will be replaced by Dart implementation
-  return null;
-}
-
-function httpPost(url, data, headers) {
-  // This will be replaced by Dart implementation
-  return null;
-}
-
+// Base64 decode
 function atob(str) {
-  // Base64 decode
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let output = '';
+  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  var output = '';
   
   str = str.replace(/=+$/, '');
   
-  for (let i = 0; i < str.length;) {
-    const enc1 = chars.indexOf(str.charAt(i++));
-    const enc2 = chars.indexOf(str.charAt(i++));
-    const enc3 = chars.indexOf(str.charAt(i++));
-    const enc4 = chars.indexOf(str.charAt(i++));
+  for (var i = 0; i < str.length;) {
+    var enc1 = chars.indexOf(str.charAt(i++));
+    var enc2 = chars.indexOf(str.charAt(i++));
+    var enc3 = chars.indexOf(str.charAt(i++));
+    var enc4 = chars.indexOf(str.charAt(i++));
     
-    const chr1 = (enc1 << 2) | (enc2 >> 4);
-    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-    const chr3 = ((enc3 & 3) << 6) | enc4;
+    var chr1 = (enc1 << 2) | (enc2 >> 4);
+    var chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    var chr3 = ((enc3 & 3) << 6) | enc4;
     
     output += String.fromCharCode(chr1);
     
