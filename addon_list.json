@@ -1,0 +1,12 @@
+{
+  "addons": [
+    {
+      "id": "example_movies",
+      "name": "Example Movies",
+      "description": "Przykładowy dodatek z filmami",
+      "version": "1.0.0",
+      "author": "YourName",
+      "url": "https://raw.githubusercontent.com/YOUR_USERNAME/movie-addons/main/addons/example_movies.dart"
+    }
+  ]
+}
