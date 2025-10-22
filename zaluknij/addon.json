@@ -1,0 +1,13 @@
+{
+  "id": "zaluknij",
+  "name": "Zaluknij",
+  "version": "1.0.0",
+  "author": "FlowFlix Team",
+  "description": "Zaluknij streaming addon",
+  "baseUrl": "https://zaluknij.cc",
+  "iconUrl": "https://www.google.com/s2/favicons?domain=zaluknij.cc&sz=64",
+  "requiresLogin": false,
+  "isLoginOptional": false,
+  "hasCaptcha": true,
+  "scriptUrl": "https://raw.githubusercontent.com/twoj-user/flowflix-addons/main/addons/zaluknij/addon.js"
+}
