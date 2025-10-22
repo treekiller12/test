@@ -43,99 +43,111 @@ var ZaluknijAddon = {
   },
   
   parseSearch: function(html, title, originalTitle, isSerial) {
-    console.log('[parseSearch] Called');
-    console.log('[parseSearch] HTML length: ' + html.length);
-    console.log('[parseSearch] Title: ' + title);
-    console.log('[parseSearch] IsSerial: ' + isSerial);
-    
-    // Znajdź sekcje <div class="row">
-    var rowPattern = /<div[^>]*class="[^"]*row[^"]*"[^>]*>/g;
-    var rowMatches = [];
-    var match;
-    
-    while ((match = rowPattern.exec(html)) !== null) {
-      rowMatches.push(match.index);
-    }
-    
-    console.log('[parseSearch] Found ' + rowMatches.length + ' row sections');
-    
-    if (rowMatches.length <= (isSerial ? 3 : 1)) {
-      console.log('[parseSearch] Not enough sections');
-      return null;
-    }
-    
-    var targetIndex = isSerial ? 3 : 1;
-    var sectionStart = rowMatches[targetIndex];
-    var sectionEnd = rowMatches[targetIndex + 1] || html.length;
-    var section = html.substring(sectionStart, sectionEnd);
-    
-    console.log('[parseSearch] Section length: ' + section.length);
-    console.log('[parseSearch] Section preview (first 500 chars):');
-    console.log(section.substring(0, 500));
-    
-    // Szukaj <div class="col-sm-4"> z <a class="item"> w środku
-    var itemPattern = /<div[^>]*class="[^"]*col-sm-4[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
-    var divMatch;
-    var itemCount = 0;
-    
-    while ((divMatch = itemPattern.exec(section)) !== null) {
-      var divContent = divMatch[1];
-      
-      console.log('[parseSearch] Found col-sm-4 div, length: ' + divContent.length);
-      
-      // Wewnątrz szukaj <a class="item">
-      var linkPattern = /<a[^>]*class="[^"]*item[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/;
-      var linkMatch = linkPattern.exec(divContent);
-      
-      if (!linkMatch) {
-        console.log('[parseSearch] No item link in this div');
-        continue;
-      }
-      
-      itemCount++;
-      var url = linkMatch[1];
-      var itemContent = linkMatch[2];
-      
-      console.log('[parseSearch] Item ' + itemCount + ' URL: ' + url);
-      console.log('[parseSearch] Item content length: ' + (itemContent ? itemContent.length : 'null'));
-      
-      if (!itemContent) {
-        console.log('[parseSearch] WARNING: itemContent is null/undefined!');
-        continue;
-      }
-      
-      var isSerialUrl = url.indexOf('/serial-online/') !== -1;
-      console.log('[parseSearch] Is serial URL: ' + isSerialUrl + ' (looking for: ' + isSerial + ')');
-      
-      if (isSerial !== isSerialUrl) {
-        console.log('[parseSearch] Type mismatch, skipping');
-        continue;
-      }
-      
-      var titleMatch = itemContent.match(/<div[^>]*class="[^"]*title[^"]*"[^>]*>([^<]*)<\/div>/);
-      
-      if (!titleMatch) {
-        console.log('[parseSearch] No title found in item content');
-        console.log('[parseSearch] Item content preview: ' + itemContent.substring(0, 200));
-        continue;
-      }
-      
-      var itemTitle = titleMatch[1].trim();
-      console.log('[parseSearch] Item title: ' + itemTitle);
-      
-      var parts = itemTitle.split('/');
-      
-      if ((title && parts.length > 0 && matchesTitle(parts[0], title)) ||
-          (originalTitle && parts.length > 1 && matchesTitle(parts[1], originalTitle))) {
-        console.log('[parseSearch] MATCH FOUND!');
-        return {url: url, title: itemTitle};
-      }
-    }
-    
-    console.log('[parseSearch] Total items checked: ' + itemCount);
-    console.log('[parseSearch] No match found');
+  console.log('[parseSearch] Called');
+  console.log('[parseSearch] HTML length: ' + html.length);
+  console.log('[parseSearch] Title: ' + title);
+  console.log('[parseSearch] IsSerial: ' + isSerial);
+  
+  // NAJPIERW znajdź div z id="advanced-search"
+  var advancedSearchPattern = /<div[^>]*id="advanced-search"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/;
+  var advancedSearchMatch = html.match(advancedSearchPattern);
+  
+  if (!advancedSearchMatch) {
+    console.log('[parseSearch] No advanced-search div found');
     return null;
-  },
+  }
+  
+  var advancedSearchHtml = advancedSearchMatch[1];
+  console.log('[parseSearch] advanced-search div length: ' + advancedSearchHtml.length);
+  
+  // TERAZ szukaj .row TYLKO w advanced-search
+  var rowPattern = /<div[^>]*class="[^"]*row[^"]*"[^>]*>/g;
+  var rowMatches = [];
+  var match;
+  
+  while ((match = rowPattern.exec(advancedSearchHtml)) !== null) {
+    rowMatches.push(match.index);
+  }
+  
+  console.log('[parseSearch] Found ' + rowMatches.length + ' row sections in advanced-search');
+  
+  if (rowMatches.length <= (isSerial ? 3 : 1)) {
+    console.log('[parseSearch] Not enough sections');
+    return null;
+  }
+  
+  var targetIndex = isSerial ? 3 : 1;
+  var sectionStart = rowMatches[targetIndex];
+  var sectionEnd = rowMatches[targetIndex + 1] || advancedSearchHtml.length;
+  var section = advancedSearchHtml.substring(sectionStart, sectionEnd);
+  
+  console.log('[parseSearch] Section length: ' + section.length);
+  console.log('[parseSearch] Section preview (first 500 chars):');
+  console.log(section.substring(0, 500));
+  
+  // Szukaj <div class="col-sm-4"> z <a class="item"> w środku
+  var itemPattern = /<div[^>]*class="[^"]*col-sm-4[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
+  var divMatch;
+  var itemCount = 0;
+  
+  while ((divMatch = itemPattern.exec(section)) !== null) {
+    var divContent = divMatch[1];
+    
+    console.log('[parseSearch] Found col-sm-4 div, length: ' + divContent.length);
+    
+    // Wewnątrz szukaj <a class="item">
+    var linkPattern = /<a[^>]*class="[^"]*item[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/;
+    var linkMatch = linkPattern.exec(divContent);
+    
+    if (!linkMatch) {
+      console.log('[parseSearch] No item link in this div');
+      continue;
+    }
+    
+    itemCount++;
+    var url = linkMatch[1];
+    var itemContent = linkMatch[2];
+    
+    console.log('[parseSearch] Item ' + itemCount + ' URL: ' + url);
+    console.log('[parseSearch] Item content length: ' + (itemContent ? itemContent.length : 'null'));
+    
+    if (!itemContent) {
+      console.log('[parseSearch] WARNING: itemContent is null/undefined!');
+      continue;
+    }
+    
+    var isSerialUrl = url.indexOf('/serial-online/') !== -1;
+    console.log('[parseSearch] Is serial URL: ' + isSerialUrl + ' (looking for: ' + isSerial + ')');
+    
+    if (isSerial !== isSerialUrl) {
+      console.log('[parseSearch] Type mismatch, skipping');
+      continue;
+    }
+    
+    var titleMatch = itemContent.match(/<div[^>]*class="[^"]*title[^"]*"[^>]*>([^<]*)<\/div>/);
+    
+    if (!titleMatch) {
+      console.log('[parseSearch] No title found in item content');
+      console.log('[parseSearch] Item content preview: ' + itemContent.substring(0, 200));
+      continue;
+    }
+    
+    var itemTitle = titleMatch[1].trim();
+    console.log('[parseSearch] Item title: ' + itemTitle);
+    
+    var parts = itemTitle.split('/');
+    
+    if ((title && parts.length > 0 && matchesTitle(parts[0], title)) ||
+        (originalTitle && parts.length > 1 && matchesTitle(parts[1], originalTitle))) {
+      console.log('[parseSearch] MATCH FOUND!');
+      return {url: url, title: itemTitle};
+    }
+  }
+  
+  console.log('[parseSearch] Total items checked: ' + itemCount);
+  console.log('[parseSearch] No match found');
+  return null;
+},
   
   parseMediaLinks: function(html) {
     console.log('[parseMediaLinks] Called');
