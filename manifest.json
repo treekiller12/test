@@ -5,7 +5,7 @@
   "addons": [
     {
       "id": "zaluknij",
-      "manifestUrl": "https://raw.githubusercontent.com/twoj-user/flowflix-addons/main/addons/zaluknij/addon.json"
+      "manifestUrl": "https://raw.githubusercontent.com/treekiller12/test/refs/heads/main/zaluknij/addon.json"
     }
   ]
 }
