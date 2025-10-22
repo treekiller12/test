@@ -70,15 +70,31 @@ var ZaluknijAddon = {
     var section = html.substring(sectionStart, sectionEnd);
     
     console.log('[parseSearch] Section length: ' + section.length);
+    console.log('[parseSearch] Section preview (first 500 chars):');
+    console.log(section.substring(0, 500));
     
-    // Znajdź linki z klasą "item"
-    var itemPattern = /<a[^>]*class="[^"]*item[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+    // Szukaj <div class="col-sm-4"> z <a class="item"> w środku
+    var itemPattern = /<div[^>]*class="[^"]*col-sm-4[^"]*"[^>]*>([\s\S]*?)<\/div>/g;
+    var divMatch;
     var itemCount = 0;
     
-    while ((match = itemPattern.exec(section)) !== null) {
+    while ((divMatch = itemPattern.exec(section)) !== null) {
+      var divContent = divMatch[1];
+      
+      console.log('[parseSearch] Found col-sm-4 div, length: ' + divContent.length);
+      
+      // Wewnątrz szukaj <a class="item">
+      var linkPattern = /<a[^>]*class="[^"]*item[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/;
+      var linkMatch = linkPattern.exec(divContent);
+      
+      if (!linkMatch) {
+        console.log('[parseSearch] No item link in this div');
+        continue;
+      }
+      
       itemCount++;
-      var url = match[1];
-      var itemContent = match[2];
+      var url = linkMatch[1];
+      var itemContent = linkMatch[2];
       
       console.log('[parseSearch] Item ' + itemCount + ' URL: ' + url);
       console.log('[parseSearch] Item content length: ' + (itemContent ? itemContent.length : 'null'));
@@ -122,17 +138,26 @@ var ZaluknijAddon = {
   },
   
   parseMediaLinks: function(html) {
+    console.log('[parseMediaLinks] Called');
     var links = [];
     
     var tablePattern = /<table[^>]*id="link-list"[^>]*>([\s\S]*?)<\/table>/;
     var tableMatch = html.match(tablePattern);
-    if (!tableMatch) return links;
+    
+    if (!tableMatch) {
+      console.log('[parseMediaLinks] No link-list table found');
+      return links;
+    }
+    
+    console.log('[parseMediaLinks] Found link-list table');
     
     var tableHtml = tableMatch[1];
     var rowPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
     var match;
+    var rowCount = 0;
     
     while ((match = rowPattern.exec(tableHtml)) !== null) {
+      rowCount++;
       var rowHtml = match[1];
       
       var iframeMatch = rowHtml.match(/data-iframe="([^"]*)"/);
@@ -156,7 +181,10 @@ var ZaluknijAddon = {
           cells.push(cellText);
         }
         
-        if (cells.length < 4) continue;
+        if (cells.length < 4) {
+          console.log('[parseMediaLinks] Not enough cells in row: ' + cells.length);
+          continue;
+        }
         
         var lang = cells[2].toLowerCase();
         var qual = cells[3].toLowerCase();
@@ -171,22 +199,33 @@ var ZaluknijAddon = {
         if (qual === 'wysoka') mappedQual = '1080p';
         else if (qual === 'średnia') mappedQual = '720p';
         
+        console.log('[parseMediaLinks] Link found: ' + mappedQual + ' ' + mappedLang);
+        
         links.push({
           url: url,
           language: mappedLang,
           quality: mappedQual,
           source: 'Zaluknij'
         });
-      } catch (e) {}
+      } catch (e) {
+        console.log('[parseMediaLinks] Error parsing row: ' + e);
+      }
     }
     
+    console.log('[parseMediaLinks] Total links found: ' + links.length);
     return links;
   },
   
   parseEpisodeUrl: function(html, season, episode) {
+    console.log('[parseEpisodeUrl] Looking for S' + season + 'E' + episode);
+    
     var listPattern = /<ul[^>]*id="episode-list"[^>]*>([\s\S]*?)<\/ul>/;
     var listMatch = html.match(listPattern);
-    if (!listMatch) return null;
+    
+    if (!listMatch) {
+      console.log('[parseEpisodeUrl] No episode-list found');
+      return null;
+    }
     
     var listHtml = listMatch[1];
     var seasonPattern = /<li[^>]*>([\s\S]*?)<\/li>/g;
@@ -199,7 +238,10 @@ var ZaluknijAddon = {
       if (!seasonNumMatch) continue;
       
       var seasonNum = parseInt(seasonNumMatch[1]);
+      
       if (seasonNum !== season) continue;
+      
+      console.log('[parseEpisodeUrl] Found season ' + seasonNum);
       
       var epPattern = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g;
       var epMatch;
@@ -212,12 +254,15 @@ var ZaluknijAddon = {
         if (!epNumMatch) continue;
         
         var epNum = parseInt(epNumMatch[1]);
+        
         if (epNum === episode) {
+          console.log('[parseEpisodeUrl] Found episode: ' + epUrl);
           return epUrl;
         }
       }
     }
     
+    console.log('[parseEpisodeUrl] Episode not found');
     return null;
   }
 };
