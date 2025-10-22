@@ -9,5 +9,6 @@
   "requiresLogin": false,
   "isLoginOptional": false,
   "hasCaptcha": true,
-  "scriptUrl": "https://raw.githubusercontent.com/treekiller12/test/refs/heads/main/zaluknij/addon.js"
+  "scriptUrl": "https://raw.githubusercontent.com/treekiller12/test/refs/heads/main/zaluknij/addon.js",
+  "manifestUrl": "https://raw.githubusercontent.com/treekiller12/test/refs/heads/main/zaluknij/addon.json"
 }
