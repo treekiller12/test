@@ -1,0 +1,11 @@
+{
+  "name": "FlowFlix Addons",
+  "version": "1.0.0",
+  "author": "FlowFlix Team",
+  "addons": [
+    {
+      "id": "zaluknij",
+      "manifestUrl": "https://raw.githubusercontent.com/twoj-user/flowflix-addons/main/addons/zaluknij/addon.json"
+    }
+  ]
+}
