@@ -1,4 +1,4 @@
-// Helper functions (na zewnątrz obiektu)
+// Helper functions
 function base64Decode(str) {
   var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
   var output = '';
@@ -37,13 +37,17 @@ function matchesTitle(item, search) {
   return nItem.indexOf(nSearch) !== -1 || nSearch.indexOf(nItem) !== -1 || nItem === nSearch;
 }
 
-// Główny obiekt addonu
 var ZaluknijAddon = {
   buildSearchUrl: function(params) {
     return "https://zaluknij.cc/wyszukiwarka?phrase=" + encodeURIComponent(params.title);
   },
   
   parseSearch: function(html, title, originalTitle, isSerial) {
+    console.log('[parseSearch] Called');
+    console.log('[parseSearch] HTML length: ' + html.length);
+    console.log('[parseSearch] Title: ' + title);
+    console.log('[parseSearch] IsSerial: ' + isSerial);
+    
     // Znajdź sekcje <div class="row">
     var rowPattern = /<div[^>]*class="[^"]*row[^"]*"[^>]*>/g;
     var rowMatches = [];
@@ -53,48 +57,73 @@ var ZaluknijAddon = {
       rowMatches.push(match.index);
     }
     
+    console.log('[parseSearch] Found ' + rowMatches.length + ' row sections');
+    
     if (rowMatches.length <= (isSerial ? 3 : 1)) {
+      console.log('[parseSearch] Not enough sections');
       return null;
     }
     
-    // Wyciągnij odpowiednią sekcję
     var targetIndex = isSerial ? 3 : 1;
     var sectionStart = rowMatches[targetIndex];
     var sectionEnd = rowMatches[targetIndex + 1] || html.length;
     var section = html.substring(sectionStart, sectionEnd);
     
+    console.log('[parseSearch] Section length: ' + section.length);
+    
     // Znajdź linki z klasą "item"
     var itemPattern = /<a[^>]*class="[^"]*item[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+    var itemCount = 0;
     
     while ((match = itemPattern.exec(section)) !== null) {
+      itemCount++;
       var url = match[1];
       var itemContent = match[2];
       
-      // Sprawdź typ (film/serial)
-      var isSerialUrl = url.indexOf('/serial-online/') !== -1;
-      if (isSerial !== isSerialUrl) continue;
+      console.log('[parseSearch] Item ' + itemCount + ' URL: ' + url);
+      console.log('[parseSearch] Item content length: ' + (itemContent ? itemContent.length : 'null'));
       
-      // Wyciągnij tytuł
+      if (!itemContent) {
+        console.log('[parseSearch] WARNING: itemContent is null/undefined!');
+        continue;
+      }
+      
+      var isSerialUrl = url.indexOf('/serial-online/') !== -1;
+      console.log('[parseSearch] Is serial URL: ' + isSerialUrl + ' (looking for: ' + isSerial + ')');
+      
+      if (isSerial !== isSerialUrl) {
+        console.log('[parseSearch] Type mismatch, skipping');
+        continue;
+      }
+      
       var titleMatch = itemContent.match(/<div[^>]*class="[^"]*title[^"]*"[^>]*>([^<]*)<\/div>/);
-      if (!titleMatch) continue;
+      
+      if (!titleMatch) {
+        console.log('[parseSearch] No title found in item content');
+        console.log('[parseSearch] Item content preview: ' + itemContent.substring(0, 200));
+        continue;
+      }
       
       var itemTitle = titleMatch[1].trim();
+      console.log('[parseSearch] Item title: ' + itemTitle);
+      
       var parts = itemTitle.split('/');
       
-      // Sprawdź dopasowanie
       if ((title && parts.length > 0 && matchesTitle(parts[0], title)) ||
           (originalTitle && parts.length > 1 && matchesTitle(parts[1], originalTitle))) {
+        console.log('[parseSearch] MATCH FOUND!');
         return {url: url, title: itemTitle};
       }
     }
     
+    console.log('[parseSearch] Total items checked: ' + itemCount);
+    console.log('[parseSearch] No match found');
     return null;
   },
   
   parseMediaLinks: function(html) {
     var links = [];
     
-    // Znajdź tabelę
     var tablePattern = /<table[^>]*id="link-list"[^>]*>([\s\S]*?)<\/table>/;
     var tableMatch = html.match(tablePattern);
     if (!tableMatch) return links;
@@ -106,22 +135,18 @@ var ZaluknijAddon = {
     while ((match = rowPattern.exec(tableHtml)) !== null) {
       var rowHtml = match[1];
       
-      // Znajdź data-iframe
       var iframeMatch = rowHtml.match(/data-iframe="([^"]*)"/);
       if (!iframeMatch) continue;
       
       try {
-        // Dekoduj base64
         var encoded = iframeMatch[1];
         var decoded = base64Decode(encoded);
         
-        // Wyciągnij URL
         var urlMatch = decoded.match(/"src":"([^"]*)"/);
         if (!urlMatch) continue;
         
         var url = urlMatch[1].replace(/\\\//g, '/');
         
-        // Wyciągnij komórki
         var cells = [];
         var cellPattern = /<td[^>]*>([\s\S]*?)<\/td>/g;
         var cellMatch;
@@ -136,7 +161,6 @@ var ZaluknijAddon = {
         var lang = cells[2].toLowerCase();
         var qual = cells[3].toLowerCase();
         
-        // Mapuj
         var mappedLang = 'PL';
         if (lang === 'lektor') mappedLang = 'Voice_Over';
         else if (lang === 'napisy pl') mappedLang = 'Subtitles';
@@ -160,7 +184,6 @@ var ZaluknijAddon = {
   },
   
   parseEpisodeUrl: function(html, season, episode) {
-    // Znajdź listę odcinków
     var listPattern = /<ul[^>]*id="episode-list"[^>]*>([\s\S]*?)<\/ul>/;
     var listMatch = html.match(listPattern);
     if (!listMatch) return null;
@@ -172,14 +195,12 @@ var ZaluknijAddon = {
     while ((match = seasonPattern.exec(listHtml)) !== null) {
       var seasonHtml = match[1];
       
-      // Sprawdź numer sezonu
       var seasonNumMatch = seasonHtml.match(/Sezon (\d+)/);
       if (!seasonNumMatch) continue;
       
       var seasonNum = parseInt(seasonNumMatch[1]);
       if (seasonNum !== season) continue;
       
-      // Znajdź odcinki
       var epPattern = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g;
       var epMatch;
       
@@ -187,7 +208,6 @@ var ZaluknijAddon = {
         var epUrl = epMatch[1];
         var epText = epMatch[2];
         
-        // Wyciągnij numer odcinka
         var epNumMatch = epText.match(/\d+e(\d+)/i);
         if (!epNumMatch) continue;
         
@@ -202,5 +222,4 @@ var ZaluknijAddon = {
   }
 };
 
-// Export
 addon = ZaluknijAddon;
